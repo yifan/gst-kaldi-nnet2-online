@@ -30,6 +30,11 @@ namespace kaldi {
 // it transforms all '.' characters to '-' in options names,
 // in order to avoid GStreamer doing it itself
 class SimpleOptionsGst : public SimpleOptions {
+ public:
+  explicit SimpleOptionsGst() {
+    Register("verbose", &g_kaldi_verbose_level,
+                 "Verbose level (higher->more logging)");
+  }
   void Register(const std::string &name, bool *ptr, const std::string &doc);
   void Register(const std::string &name, int32 *ptr, const std::string &doc);
   void Register(const std::string &name, uint32 *ptr, const std::string &doc);
