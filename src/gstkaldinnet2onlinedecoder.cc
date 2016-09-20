@@ -52,6 +52,7 @@
 #include "fstext/fstext-lib.h"
 #include "lat/confidence.h"
 #include "hmm/hmm-utils.h"
+#include "base/timer.h"
 #include <fst/script/project.h>
 
 #include <fstream>
@@ -1508,6 +1509,7 @@ static void gst_kaldinnet2onlinedecoder_nnet3_unthreaded_decode_segment(Gstkaldi
 static void gst_kaldinnet2onlinedecoder_loop(
     Gstkaldinnet2onlinedecoder * filter) {
 
+  Timer timer();
   GST_DEBUG_OBJECT(filter, "Starting decoding loop..");
   BaseFloat traceback_period_secs = filter->traceback_period_in_secs;
 
@@ -1539,6 +1541,9 @@ static void gst_kaldinnet2onlinedecoder_loop(
   delete filter->audio_source;
   filter->audio_source = new GstBufferSource();
   filter->decoding = false;
+
+  GST_INFO_OBJECT(filter, "Timing information: %.02f audio %.02f decoding, realtime-factor %.02f", 
+                          filter->total_time_decoded, timer.Elapsed(), timer.Elapsed() / filter->total_time_decoded);
 }
 
 /* GstElement vmethod implementations */
