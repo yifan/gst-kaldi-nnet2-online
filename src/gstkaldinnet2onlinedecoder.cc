@@ -1481,25 +1481,40 @@ static void gst_kaldinnet2onlinedecoder_nnet3_unthreaded_decode_segment(Gstkaldi
   }
 
   if (num_seconds_decoded > 0.1) {
-    GST_DEBUG_OBJECT(filter, "Getting lattice..");
-    decoder.FinalizeDecoding();
-    CompactLattice clat;
-    bool end_of_utterance = true;
-    decoder.GetLattice(end_of_utterance, &clat);
-    GST_DEBUG_OBJECT(filter, "Lattice done");
-    if ((filter->lm_fst != NULL) && (filter->big_lm_const_arpa != NULL)) {
-      GST_DEBUG_OBJECT(filter, "Rescoring lattice with a big LM");
-      CompactLattice rescored_lat;
-      if (gst_kaldinnet2onlinedecoder_rescore_big_lm(filter, clat, rescored_lat)) {
-        clat = rescored_lat;
-      }
-    }
 
-    guint num_words = 0;
-    gst_kaldinnet2onlinedecoder_final_result(filter, clat, &num_words);
-    if (num_words >= filter->min_words_for_ivector) {
-      // Only update adaptation state if the utterance contained enough words
-      feature_pipeline.GetAdaptationState(filter->adaptation_state);
+    // FIXME no lattice for speed up
+    if (true) {
+      Lattice lat;
+      decoder.GetBestPath(false, &lat);
+      std::vector<int32> words;
+      std::vector<int32> alignment;
+      LatticeWeight weight;
+      GetLinearSymbolSequence(lat, &alignment, &words, &weight);
+      std::string transcript = gst_kaldinnet2onlinedecoder_words_to_string(filter, words);
+      g_signal_emit(filter,
+                    gst_kaldinnet2onlinedecoder_signals[FINAL_RESULT_SIGNAL], 0,
+                    transcript.c_str());
+    } else {
+      GST_DEBUG_OBJECT(filter, "Getting lattice..");
+      decoder.FinalizeDecoding();
+      CompactLattice clat;
+      bool end_of_utterance = true;
+      decoder.GetLattice(end_of_utterance, &clat);
+      GST_DEBUG_OBJECT(filter, "Lattice done");
+      if ((filter->lm_fst != NULL) && (filter->big_lm_const_arpa != NULL)) {
+        GST_DEBUG_OBJECT(filter, "Rescoring lattice with a big LM");
+        CompactLattice rescored_lat;
+        if (gst_kaldinnet2onlinedecoder_rescore_big_lm(filter, clat, rescored_lat)) {
+          clat = rescored_lat;
+        }
+      }
+
+      guint num_words = 0;
+      gst_kaldinnet2onlinedecoder_final_result(filter, clat, &num_words);
+      if (num_words >= filter->min_words_for_ivector) {
+        // Only update adaptation state if the utterance contained enough words
+        feature_pipeline.GetAdaptationState(filter->adaptation_state);
+      }
     }
   } else {
     GST_DEBUG_OBJECT(filter, "Less than 0.1 seconds decoded, discarding");
