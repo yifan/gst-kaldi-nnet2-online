@@ -29,6 +29,7 @@ GstBufferSource::GstBufferSource() :
   buf_queue_ = g_async_queue_new();
   current_buffer_ = NULL;
   pos_in_current_buf_ = 0;
+  remaining_ = 0;
 
   // Monophone, 16-bit input hardcoded
   KALDI_ASSERT(sizeof(SampleType) == 2 &&
@@ -62,8 +63,24 @@ void GstBufferSource::SetEnded(bool ended) {
   g_mutex_unlock(&lock_);
 }
 
+void GstBufferSource::SetSegmentEnded(bool ended) {
+  g_mutex_lock(&lock_);
+  if (remaining_ == 0) {
+    remaining_ = g_async_queue_length(buf_queue_);
+  }
+  g_cond_signal(&data_cond_);
+  g_mutex_unlock(&lock_);
+}
 
-bool GstBufferSource::Read(Vector<BaseFloat> *data) {
+bool GstBufferSource::EndOfStream() {
+  return ended_; 
+}
+
+bool GstBufferSource::EndOfSegment() {
+  return remaining_ > 0 && remaining_read_ == remaining_;
+}
+
+bool GstBufferSource::Read(Vector<BaseFloat> *data, bool &endOfSegment) {
   uint32 nsamples_req = data->Dim();  // (16bit) samples requested
   uint32 kDim = data->Dim();
   int16 *buf = new int16[kDim];
@@ -72,10 +89,15 @@ bool GstBufferSource::Read(Vector<BaseFloat> *data) {
   while ((nbytes_transferred  < nsamples_req * sizeof(SampleType))) {
     g_mutex_lock(&lock_);
     while ((current_buffer_ == NULL) &&
-        !((g_async_queue_length(buf_queue_) == 0) && ended_)) {
+        !((g_async_queue_length(buf_queue_) == 0) && (EndOfSegment() || EndOfStream()))) {
       current_buffer_ = reinterpret_cast<GstBuffer*>(g_async_queue_try_pop(buf_queue_));
       if (current_buffer_ == NULL) {
         g_cond_wait(&data_cond_, &lock_);
+      }
+      else {
+        if (remaining_) {
+          remaining_read_ ++;
+        }
       }
     }
     g_mutex_unlock(&lock_);
@@ -112,6 +134,13 @@ bool GstBufferSource::Read(Vector<BaseFloat> *data) {
   if (nsamples_received < nsamples_req) {
     data->Resize(nsamples_received, kCopyData);
   }
+
+  if (remaining_ && remaining_ == remaining_read_) {
+    remaining_ = remaining_read_ = 0;
+  }
+
+  endOfSegment = EndOfSegment();
+
   return !((g_async_queue_length(buf_queue_) < sizeof(SampleType))
       && ended_
       && (current_buffer_ == NULL));

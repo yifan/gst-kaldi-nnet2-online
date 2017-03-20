@@ -34,20 +34,26 @@ class GstBufferSource {
   GstBufferSource();
 
   // Implementation of the OnlineAudioSourceItf
-  bool Read(Vector<BaseFloat> *data);
+  bool Read(Vector<BaseFloat> *data, bool &endOfSegment);
 
   void PushBuffer(GstBuffer *buf);
 
+  void SetSegmentEnded(bool ended);
   void SetEnded(bool ended);
 
   ~GstBufferSource();
 
  private:
 
+  bool EndOfStream();
+  bool EndOfSegment();
+
   GAsyncQueue* buf_queue_;
   gint pos_in_current_buf_;
   GstBuffer *current_buffer_;
   bool ended_;
+  gint remaining_read_; // 
+  gint remaining_;    // remaining buffer from queue since EOS received
   GMutex lock_;
   GCond data_cond_;
   KALDI_DISALLOW_COPY_AND_ASSIGN(GstBufferSource);
