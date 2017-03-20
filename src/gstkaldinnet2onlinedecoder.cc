@@ -78,6 +78,7 @@ enum {
   PARTIAL_RESULT_SIGNAL,
   FINAL_RESULT_SIGNAL,
   FULL_FINAL_RESULT_SIGNAL,
+  PARTIAL_RESULT_EXTRA_SIGNAL,
   LAST_SIGNAL
 };
 
@@ -1318,6 +1319,7 @@ static void gst_kaldinnet2onlinedecoder_threaded_decode_segment(Gstkaldinnet2onl
                      wave_part.Dim());
     BaseFloat last_traceback = 0.0;
     BaseFloat num_seconds_decoded = 0.0;
+    bool endOfSegment;
     if (remaining_wave_part->Dim() > 0) {
       GST_DEBUG_OBJECT(filter, "Submitting remaining wave of size %d", remaining_wave_part->Dim());
       decoder.AcceptWaveform(filter->sample_rate, *remaining_wave_part);
@@ -1327,7 +1329,7 @@ static void gst_kaldinnet2onlinedecoder_threaded_decode_segment(Gstkaldinnet2onl
       }
     }
     while (true) {
-      more_data = filter->audio_source->Read(&wave_part);
+      more_data = filter->audio_source->Read(&wave_part, endOfSegment);
       GST_DEBUG_OBJECT(filter, "Submitting wave of size: %d", wave_part.Dim());
       decoder.AcceptWaveform(filter->sample_rate, wave_part);
       filter->total_time_decoded += 1.0 * wave_part.Dim() / filter->sample_rate;
@@ -1423,8 +1425,9 @@ static void gst_kaldinnet2onlinedecoder_unthreaded_decode_segment(Gstkaldinnet2o
                    wave_part.Dim());
   BaseFloat last_traceback = 0.0;
   BaseFloat num_seconds_decoded = 0.0;
+  bool endOfSegment;
   while (true) {
-    more_data = filter->audio_source->Read(&wave_part);
+    more_data = filter->audio_source->Read(&wave_part, endOfSegment);
 
     feature_pipeline.AcceptWaveform(filter->sample_rate, wave_part);
     if (!more_data) {
@@ -1444,7 +1447,7 @@ static void gst_kaldinnet2onlinedecoder_unthreaded_decode_segment(Gstkaldinnet2o
     num_seconds_decoded += 1.0 * wave_part.Dim() / filter->sample_rate;
     filter->total_time_decoded += 1.0 * wave_part.Dim() / filter->sample_rate;
     GST_DEBUG_OBJECT(filter, "Total amount of audio processed: %f seconds", filter->total_time_decoded);
-    if (!more_data) {
+    if (!more_data || endOfSegment) {
       break;
     }
     if (filter->do_endpointing
@@ -1511,8 +1514,9 @@ static void gst_kaldinnet2onlinedecoder_nnet3_unthreaded_decode_segment(Gstkaldi
                    wave_part.Dim());
   BaseFloat last_traceback = 0.0;
   BaseFloat num_seconds_decoded = 0.0;
+  bool endOfSegment;
   while (true) {
-    more_data = filter->audio_source->Read(&wave_part);
+    more_data = filter->audio_source->Read(&wave_part, endOfSegment);
 
     feature_pipeline.AcceptWaveform(filter->sample_rate, wave_part);
     if (!more_data) {
@@ -1672,6 +1676,15 @@ static gboolean gst_kaldinnet2onlinedecoder_sink_event(GstPad * pad,
       break;
     }
     case GST_EVENT_CAPS: {
+      ret = TRUE;
+      break;
+    }
+    case GST_EVENT_TAG: {
+      if (filter->decoding) {
+        filter->audio_source->SetSegmentEnded(true);
+      } else {
+        GST_DEBUG_OBJECT(filter, "TAG received to indicate end of segment while not decoding, ignored");
+      }
       ret = TRUE;
       break;
     }
