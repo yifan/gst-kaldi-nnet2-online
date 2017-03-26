@@ -25,11 +25,12 @@ namespace kaldi {
 
 
 GstBufferSource::GstBufferSource() :
-  ended_(false) {
+  ended_(false), segmentEnded_(false) {
   buf_queue_ = g_async_queue_new();
   current_buffer_ = NULL;
   pos_in_current_buf_ = 0;
   remaining_ = 0;
+  remaining_read_ = 0;
 
   // Monophone, 16-bit input hardcoded
   KALDI_ASSERT(sizeof(SampleType) == 2 &&
@@ -65,8 +66,11 @@ void GstBufferSource::SetEnded(bool ended) {
 
 void GstBufferSource::SetSegmentEnded(bool ended) {
   g_mutex_lock(&lock_);
-  if (remaining_ == 0) {
-    remaining_ = g_async_queue_length(buf_queue_);
+  segmentEnded_ = ended;
+  if (ended) {
+    if (remaining_ == 0) {
+      remaining_ = g_async_queue_length(buf_queue_);
+    }
   }
   g_cond_signal(&data_cond_);
   g_mutex_unlock(&lock_);
@@ -77,7 +81,7 @@ bool GstBufferSource::EndOfStream() {
 }
 
 bool GstBufferSource::EndOfSegment() {
-  return remaining_ > 0 && remaining_read_ == remaining_;
+  return segmentEnded_;
 }
 
 bool GstBufferSource::Read(Vector<BaseFloat> *data, bool &endOfSegment) {
@@ -89,7 +93,7 @@ bool GstBufferSource::Read(Vector<BaseFloat> *data, bool &endOfSegment) {
   while ((nbytes_transferred  < nsamples_req * sizeof(SampleType))) {
     g_mutex_lock(&lock_);
     while ((current_buffer_ == NULL) &&
-        !((g_async_queue_length(buf_queue_) == 0) && (EndOfSegment() || EndOfStream()))) {
+        !((g_async_queue_length(buf_queue_) == 0) && (ended_ || segmentEnded_))) {
       current_buffer_ = reinterpret_cast<GstBuffer*>(g_async_queue_try_pop(buf_queue_));
       if (current_buffer_ == NULL) {
         g_cond_wait(&data_cond_, &lock_);
@@ -135,11 +139,14 @@ bool GstBufferSource::Read(Vector<BaseFloat> *data, bool &endOfSegment) {
     data->Resize(nsamples_received, kCopyData);
   }
 
-  if (remaining_ && remaining_ == remaining_read_) {
-    remaining_ = remaining_read_ = 0;
+  if (remaining_) {
+    if (remaining_ == remaining_read_) {
+      endOfSegment = segmentEnded_;
+      remaining_ = remaining_read_ = 0;
+    }
+  } else {
+    endOfSegment = segmentEnded_;
   }
-
-  endOfSegment = EndOfSegment();
 
   return !((g_async_queue_length(buf_queue_) < sizeof(SampleType))
       && ended_
