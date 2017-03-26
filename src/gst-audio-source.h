@@ -52,6 +52,7 @@ class GstBufferSource {
   gint pos_in_current_buf_;
   GstBuffer *current_buffer_;
   bool ended_;
+  bool segmentEnded_;
   gint remaining_read_; // 
   gint remaining_;    // remaining buffer from queue since EOS received
   GMutex lock_;

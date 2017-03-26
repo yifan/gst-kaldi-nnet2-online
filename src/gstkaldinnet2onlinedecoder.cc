@@ -1361,6 +1361,12 @@ static void gst_kaldinnet2onlinedecoder_threaded_decode_segment(Gstkaldinnet2onl
           GST_DEBUG_OBJECT(filter, "Endpoint detected!");
           break;
         }
+
+        if (endOfSegment) {
+          decoder.TerminateDecoding();
+          GST_DEBUG_OBJECT(filter, "Segment end detected!");
+          break;
+        }
       }
       num_seconds_decoded += filter->chunk_length_in_secs;
       if ((num_seconds_decoded - last_traceback > traceback_period_secs)
