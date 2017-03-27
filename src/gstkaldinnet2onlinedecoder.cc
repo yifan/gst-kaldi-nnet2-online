@@ -1453,7 +1453,11 @@ static void gst_kaldinnet2onlinedecoder_unthreaded_decode_segment(Gstkaldinnet2o
     num_seconds_decoded += 1.0 * wave_part.Dim() / filter->sample_rate;
     filter->total_time_decoded += 1.0 * wave_part.Dim() / filter->sample_rate;
     GST_DEBUG_OBJECT(filter, "Total amount of audio processed: %f seconds", filter->total_time_decoded);
-    if (!more_data || endOfSegment) {
+    if (!more_data) {
+      break;
+    }
+    if (endOfSegment) {
+      more_data = true;
       break;
     }
     if (filter->do_endpointing
