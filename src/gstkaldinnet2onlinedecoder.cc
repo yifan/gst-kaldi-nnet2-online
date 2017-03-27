@@ -1457,6 +1457,7 @@ static void gst_kaldinnet2onlinedecoder_unthreaded_decode_segment(Gstkaldinnet2o
       break;
     }
     if (endOfSegment) {
+      filter->audio_source->SetSegmentEnded(false);
       more_data = true;
       break;
     }
