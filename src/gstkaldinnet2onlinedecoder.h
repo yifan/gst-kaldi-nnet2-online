@@ -39,6 +39,7 @@
 #include "lat/lattice-functions.h"
 #include "lm/const-arpa-lm.h"
 #include "lat/word-align-lattice.h"
+#include "base/timer.h"
 
 namespace kaldi {
 
@@ -114,6 +115,8 @@ struct _Gstkaldinnet2onlinedecoder {
   OnlineIvectorExtractorAdaptationState *adaptation_state;
   float segment_start_time;
   float total_time_decoded;
+
+  Timer segment_decode_timer;
 
   // The following are needed for optional LM rescoring with a "big" LM
   gchar* lm_fst_name;

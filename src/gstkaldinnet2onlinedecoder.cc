@@ -1122,7 +1122,11 @@ static std::string gst_kaldinnet2onlinedecoder_full_final_result_to_json(
       frame_shift *= filter->nnet3_decodable_opts->frame_subsampling_factor;
     }
     json_object_set_new(root, "segment-start",  json_real(filter->segment_start_time));
-
+    double decode_time = filter->segment_decode_timer.Elapsed();
+    json_object_set_new(root, "segment-decode-time", json_real(decode_time));
+    if (filter->total_time_decoded > 0.0) {
+      json_object_set_new(root, "segment-realtime-factor", json_real(decode_time/filter->total_time_decoded));
+    }
     json_object_set_new(root, "segment-length",  json_real(full_final_result.nbest_results[0].num_frames * frame_shift));
     json_object_set_new(root, "total-length",  json_real(filter->total_time_decoded));
     json_t *nbest_json_arr = json_array();
@@ -1589,6 +1593,7 @@ static void gst_kaldinnet2onlinedecoder_loop(
   Vector<BaseFloat> remaining_wave_part;
   filter->segment_start_time = 0.0;
   filter->total_time_decoded = 0.0;
+  filter->segment_decode_timer.Reset();
   while (more_data) {
     if (filter->nnet_mode == NNET2) {
       if (filter->use_threaded_decoder) {
