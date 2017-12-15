@@ -47,6 +47,10 @@ GstBufferSource::~GstBufferSource() {
   }
 }
 
+gint GstBufferSource::getLength() {
+  return g_async_queue_length(buf_queue_);
+}
+
 void GstBufferSource::PushBuffer(GstBuffer *buf) {
   g_mutex_lock(&lock_);
   gst_buffer_ref(buf);

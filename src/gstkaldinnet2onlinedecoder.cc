@@ -1517,6 +1517,7 @@ static void gst_kaldinnet2onlinedecoder_nnet3_unthreaded_decode_segment(Gstkaldi
   BaseFloat num_seconds_decoded = 0.0;
   while (true) {
     more_data = filter->audio_source->Read(&wave_part);
+    GST_DEBUG_OBJECT(filter, "number of items in queue %d ...", filter->audio_source->getLength());
 
     feature_pipeline.AcceptWaveform(filter->sample_rate, wave_part);
     if (!more_data) {

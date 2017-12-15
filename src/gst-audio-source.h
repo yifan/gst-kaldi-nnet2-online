@@ -33,6 +33,8 @@ class GstBufferSource {
 
   GstBufferSource();
 
+  gint getLength();
+
   // Implementation of the OnlineAudioSourceItf
   bool Read(Vector<BaseFloat> *data);
 
